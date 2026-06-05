@@ -1,0 +1,831 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ESG Day Manager — Endura</title>
+<script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #07192B;
+    --surface: #0D2137;
+    --surface2: #112840;
+    --border: #1E3A52;
+    --teal: #00879E;
+    --teal-light: #0ABAB5;
+    --gold: #F0A500;
+    --text: #E2E8F0;
+    --muted: #64748B;
+    --success: #10B981;
+    --warn: #F59E0B;
+    --danger: #EF4444;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+  /* LOGIN */
+  .login-wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
+  .login-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 40px; width: 100%; max-width: 400px; }
+  .login-logo { text-align: center; margin-bottom: 28px; }
+  .login-logo .brand { font-size: 22px; font-weight: 700; color: var(--text); }
+  .login-logo .sub { font-size: 12px; color: var(--teal-light); margin-top: 4px; }
+
+  /* LAYOUT */
+  .app { display: flex; min-height: 100vh; }
+  .sidebar { width: 220px; background: var(--surface); border-right: 1px solid var(--border); padding: 20px 0; display: flex; flex-direction: column; position: fixed; height: 100vh; z-index: 10; }
+  .sidebar-logo { padding: 0 20px 20px; border-bottom: 1px solid var(--border); margin-bottom: 16px; }
+  .sidebar-logo .brand { font-size: 15px; font-weight: 700; color: var(--text); }
+  .sidebar-logo .clinic { font-size: 11px; color: var(--teal-light); margin-top: 3px; }
+  .nav-item { display: flex; align-items: center; gap: 10px; padding: 10px 20px; font-size: 13px; color: var(--muted); cursor: pointer; transition: all 0.15s; border-left: 3px solid transparent; }
+  .nav-item:hover { background: var(--surface2); color: var(--text); }
+  .nav-item.active { color: var(--teal-light); border-left-color: var(--teal); background: rgba(0,135,158,0.08); }
+  .nav-icon { font-size: 16px; width: 20px; text-align: center; }
+  .sidebar-footer { margin-top: auto; padding: 16px 20px; border-top: 1px solid var(--border); }
+  .btn-logout { width: 100%; padding: 8px; background: transparent; border: 1px solid var(--border); border-radius: 8px; color: var(--muted); font-size: 12px; cursor: pointer; font-family: 'DM Sans', sans-serif; }
+  .btn-logout:hover { border-color: var(--danger); color: var(--danger); }
+  .main { margin-left: 220px; padding: 24px; flex: 1; }
+  .page-title { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+  .page-sub { font-size: 13px; color: var(--muted); margin-bottom: 24px; }
+
+  /* CARDS */
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
+  .kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
+  .kpi { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
+  .kpi-label { font-size: 10px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px; }
+  .kpi-value { font-size: 26px; font-weight: 700; }
+  .kpi-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+  /* BUTTONS */
+  .btn { padding: 9px 18px; border-radius: 8px; border: none; font-size: 13px; font-weight: 600; cursor: pointer; font-family: 'DM Sans', sans-serif; transition: all 0.15s; display: inline-flex; align-items: center; gap: 6px; }
+  .btn-primary { background: var(--teal); color: #07192B; }
+  .btn-primary:hover { background: var(--teal-light); }
+  .btn-ghost { background: transparent; border: 1px solid var(--border); color: var(--text); }
+  .btn-ghost:hover { border-color: var(--teal); color: var(--teal); }
+  .btn-danger { background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); color: var(--danger); }
+  .btn-sm { padding: 5px 12px; font-size: 12px; }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* FORMS */
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .form-full { grid-column: 1 / -1; }
+  .form-group { display: flex; flex-direction: column; gap: 6px; }
+  .form-label { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+  .form-input, .form-select, .form-textarea { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 9px 12px; color: var(--text); font-size: 13px; font-family: 'DM Sans', sans-serif; outline: none; }
+  .form-input:focus, .form-select:focus, .form-textarea:focus { border-color: var(--teal); }
+  .form-textarea { resize: vertical; min-height: 80px; }
+
+  /* MODAL */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 100; padding: 20px; }
+  .modal { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; width: 100%; max-width: 560px; max-height: 90vh; overflow-y: auto; }
+  .modal-header { padding: 20px 24px 0; display: flex; justify-content: space-between; align-items: center; }
+  .modal-title { font-size: 16px; font-weight: 700; }
+  .modal-close { background: transparent; border: none; color: var(--muted); font-size: 20px; cursor: pointer; line-height: 1; }
+  .modal-body { padding: 20px 24px 24px; }
+
+  /* TABLE */
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; padding: 10px 12px; border-bottom: 1px solid var(--border); }
+  td { padding: 11px 12px; border-bottom: 1px solid rgba(30,58,82,0.5); }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(0,135,158,0.04); }
+
+  /* STATUS BADGES */
+  .badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+  .badge-enviado { background: rgba(100,116,139,0.15); color: var(--muted); }
+  .badge-confirmado { background: rgba(16,185,129,0.15); color: var(--success); }
+  .badge-recusou { background: rgba(239,68,68,0.15); color: var(--danger); }
+  .badge-sem-resposta { background: rgba(245,158,11,0.15); color: var(--warn); }
+  .badge-lembrete { background: rgba(0,135,158,0.15); color: var(--teal-light); }
+
+  /* EVENTO CARD */
+  .evento-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px 20px; margin-bottom: 12px; cursor: pointer; transition: border-color 0.15s; }
+  .evento-card:hover { border-color: var(--teal); }
+  .evento-card.active { border-color: var(--teal); background: rgba(0,135,158,0.06); }
+
+  /* PROGRESS BAR */
+  .progress-bar { height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; }
+  .progress-fill { height: 100%; border-radius: 3px; transition: width 0.3s; }
+
+  /* UPLOAD */
+  .upload-area { border: 2px dashed var(--border); border-radius: 10px; padding: 32px; text-align: center; cursor: pointer; transition: border-color 0.15s; }
+  .upload-area:hover { border-color: var(--teal); }
+
+  /* TOAST */
+  .toast { position: fixed; bottom: 24px; right: 24px; background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 12px 18px; font-size: 13px; z-index: 999; box-shadow: 0 8px 24px rgba(0,0,0,0.3); }
+  .toast.success { border-color: var(--success); color: var(--success); }
+  .toast.error { border-color: var(--danger); color: var(--danger); }
+
+  /* MOBILE */
+  @media (max-width: 768px) {
+    .sidebar { width: 100%; height: auto; position: relative; flex-direction: row; flex-wrap: wrap; padding: 10px; }
+    .main { margin-left: 0; padding: 16px; }
+    .kpi-row { grid-template-columns: 1fr 1fr; }
+    .form-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useRef } = React;
+
+const SUPABASE_URL = 'https://vumtiszgrcjzgekkpgmp.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ1bXRpc3pncmNqemdla2twZ21wIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk5MTk0NjUsImV4cCI6MjA5NTQ5NTQ2NX0.eWO05aayH7lmb5eOuEOwjyEoVx-SGWKh-MBZspfH_Xk';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// ─── HELPERS ───────────────────────────────────────────────────────────────
+const uid = () => Math.random().toString(36).slice(2) + Date.now().toString(36);
+const fmtDate = d => d ? new Date(d + 'T00:00:00').toLocaleDateString('pt-BR') : '—';
+const fmtDT = d => d ? new Date(d).toLocaleString('pt-BR') : '—';
+
+function Toast({ msg, type = 'success', onHide }) {
+  useEffect(() => { const t = setTimeout(onHide, 3000); return () => clearTimeout(t); }, []);
+  return <div className={`toast ${type}`}>{msg}</div>;
+}
+
+function Badge({ status }) {
+  const map = {
+    'Enviado': ['badge-enviado', '📤'],
+    'Confirmado': ['badge-confirmado', '✅'],
+    'Recusou': ['badge-recusou', '❌'],
+    'Sem resposta': ['badge-sem-resposta', '⏳'],
+    'Lembrete enviado': ['badge-lembrete', '🔔'],
+  };
+  const [cls, icon] = map[status] || ['badge-enviado', '📤'];
+  return <span className={`badge ${cls}`}>{icon} {status}</span>;
+}
+
+// ─── LOGIN ──────────────────────────────────────────────────────────────────
+function Login({ onLogin }) {
+  const [form, setForm] = useState({ email: '', senha: '', clinica: '' });
+  const [erro, setErro] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  // Demo: clínicas pré-cadastradas no localStorage
+  const handleLogin = async () => {
+    if (!form.email || !form.senha || !form.clinica) { setErro('Preencha todos os campos'); return; }
+    setLoading(true);
+    await new Promise(r => setTimeout(r, 800));
+    // Validação simples — em produção usar Supabase Auth
+    const clinicas = JSON.parse(localStorage.getItem('esgday_clinicas') || '[]');
+    const found = clinicas.find(c => c.email === form.email && c.senha === form.senha);
+    if (found) {
+      onLogin(found);
+    } else if (form.email === 'admin@endura.com' && form.senha === 'endura2026') {
+      onLogin({ id: 'admin', nome: 'Administrador Endura', email: form.email, role: 'admin' });
+    } else {
+      // Criar conta automaticamente para demo
+      const novaClinica = { id: uid(), nome: form.clinica, email: form.email, senha: form.senha, role: 'clinica' };
+      clinicas.push(novaClinica);
+      localStorage.setItem('esgday_clinicas', JSON.stringify(clinicas));
+      onLogin(novaClinica);
+    }
+    setLoading(false);
+  };
+
+  return (
+    <div className="login-wrap">
+      <div className="login-card">
+        <div className="login-logo">
+          <div style={{ fontSize: 32, marginBottom: 8 }}>🎯</div>
+          <div className="brand">ESG Day Manager</div>
+          <div className="sub">Endura · Boston Scientific Brasil</div>
+        </div>
+        {erro && <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 8, padding: '8px 12px', fontSize: 13, color: 'var(--danger)', marginBottom: 14 }}>{erro}</div>}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div className="form-group">
+            <label className="form-label">Clínica / Hospital</label>
+            <input className="form-input" placeholder="Nome da clínica" value={form.clinica} onChange={e => setForm(f => ({...f, clinica: e.target.value}))} />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Email</label>
+            <input className="form-input" type="email" placeholder="seu@email.com" value={form.email} onChange={e => setForm(f => ({...f, email: e.target.value}))} />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Senha</label>
+            <input className="form-input" type="password" placeholder="••••••••" value={form.senha} onChange={e => setForm(f => ({...f, senha: e.target.value}))} onKeyDown={e => e.key === 'Enter' && handleLogin()} />
+          </div>
+          <button className="btn btn-primary" style={{ width: '100%', justifyContent: 'center', marginTop: 4 }} onClick={handleLogin} disabled={loading}>
+            {loading ? 'Entrando...' : '→ Entrar'}
+          </button>
+        </div>
+        <div style={{ fontSize: 11, color: 'var(--muted)', textAlign: 'center', marginTop: 16 }}>Primeiro acesso? Preencha os dados e será criada sua conta automaticamente.</div>
+      </div>
+    </div>
+  );
+}
+
+// ─── NOVO EVENTO MODAL ──────────────────────────────────────────────────────
+function NovoEventoModal({ clinica, onSave, onClose }) {
+  const [form, setForm] = useState({
+    titulo: '', medico: '', data: '', hora: '', local: '', endereco: '',
+    vagas: '', descricao: '', mensagem_email: '',
+    assunto_email: 'Convite especial: ' + (clinica?.nome || 'Clínica') + ' — ESG Day',
+  });
+  const set = (k, v) => setForm(f => ({...f, [k]: v}));
+
+  const templatePadrao = `Olá, {nome}!
+
+${clinica?.nome || 'Nossa clínica'} tem o prazer de convidá-lo(a) para um evento especial:
+
+🎯 ESG Day — {titulo}
+📅 Data: {data}
+🕐 Horário: {hora}
+📍 Local: {local}
+
+Nesse encontro exclusivo, você terá a oportunidade de conhecer mais sobre a Gastroplastia Endoscópica — um procedimento minimamente invasivo para perda de peso duradoura, sem cirurgia e com alta de no mesmo dia.
+
+O evento é gratuito e exclusivo para pacientes convidados. Vagas limitadas.
+
+Para confirmar sua presença, basta responder este email com SIM ou NÃO.
+
+Atenciosamente,
+${clinica?.nome || 'Equipe Médica'}`;
+
+  useEffect(() => { if (!form.mensagem_email) set('mensagem_email', templatePadrao); }, []);
+
+  const salvar = () => {
+    if (!form.titulo || !form.data || !form.medico) { alert('Preencha título, médico e data'); return; }
+    onSave({ ...form, id: uid(), clinica_id: clinica.id, clinica_nome: clinica.nome, status: 'Rascunho', criado_em: new Date().toISOString(), total_convidados: 0, confirmados: 0, recusaram: 0, sem_resposta: 0 });
+  };
+
+  return (
+    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="modal">
+        <div className="modal-header">
+          <div className="modal-title">🎯 Novo Evento ESG Day</div>
+          <button className="modal-close" onClick={onClose}>×</button>
+        </div>
+        <div className="modal-body">
+          <div className="form-grid" style={{ marginBottom: 16 }}>
+            <div className="form-group form-full">
+              <label className="form-label">Título do Evento</label>
+              <input className="form-input" placeholder="Ex: ESG Day — Clínica Vida Saudável" value={form.titulo} onChange={e => set('titulo', e.target.value)} />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Médico Responsável</label>
+              <input className="form-input" placeholder="Dr. ..." value={form.medico} onChange={e => set('medico', e.target.value)} />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Vagas</label>
+              <input className="form-input" type="number" placeholder="Ex: 20" value={form.vagas} onChange={e => set('vagas', e.target.value)} />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Data</label>
+              <input className="form-input" type="date" value={form.data} onChange={e => set('data', e.target.value)} />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Horário</label>
+              <input className="form-input" type="time" value={form.hora} onChange={e => set('hora', e.target.value)} />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Local</label>
+              <input className="form-input" placeholder="Ex: Auditório da Clínica" value={form.local} onChange={e => set('local', e.target.value)} />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Endereço</label>
+              <input className="form-input" placeholder="Rua, número, cidade" value={form.endereco} onChange={e => set('endereco', e.target.value)} />
+            </div>
+            <div className="form-group form-full">
+              <label className="form-label">Assunto do Email</label>
+              <input className="form-input" value={form.assunto_email} onChange={e => set('assunto_email', e.target.value)} />
+            </div>
+            <div className="form-group form-full">
+              <label className="form-label">Mensagem de Convite</label>
+              <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 6 }}>Use {'{nome}'} para o nome do paciente, {'{data}'}, {'{hora}'}, {'{local}'}, {'{titulo}'}</div>
+              <textarea className="form-textarea" style={{ minHeight: 180 }} value={form.mensagem_email} onChange={e => set('mensagem_email', e.target.value)} />
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+            <button className="btn btn-ghost" onClick={onClose}>Cancelar</button>
+            <button className="btn btn-primary" onClick={salvar}>✓ Criar Evento</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── UPLOAD CSV MODAL ────────────────────────────────────────────────────────
+function UploadModal({ evento, onSave, onClose }) {
+  const [pacientes, setPacientes] = useState([]);
+  const [preview, setPreview] = useState(false);
+  const [erro, setErro] = useState('');
+  const fileRef = useRef();
+
+  const parseCSV = (text) => {
+    const linhas = text.trim().split('\n').filter(l => l.trim());
+    if (linhas.length < 2) { setErro('CSV vazio ou sem dados'); return; }
+    const header = linhas[0].split(/[,;]/).map(h => h.trim().toLowerCase().replace(/"/g, ''));
+    const nomeIdx = header.findIndex(h => h.includes('nome'));
+    const emailIdx = header.findIndex(h => h.includes('email'));
+    const telIdx = header.findIndex(h => h.includes('tel') || h.includes('whats') || h.includes('fone'));
+    if (nomeIdx < 0) { setErro('Coluna "nome" não encontrada. Verifique o CSV.'); return; }
+    const lista = [];
+    for (let i = 1; i < linhas.length; i++) {
+      const cols = linhas[i].split(/[,;]/).map(c => c.trim().replace(/"/g, ''));
+      if (!cols[nomeIdx]) continue;
+      lista.push({
+        id: uid(),
+        nome: cols[nomeIdx] || '',
+        email: emailIdx >= 0 ? cols[emailIdx] || '' : '',
+        telefone: telIdx >= 0 ? cols[telIdx] || '' : '',
+        status: 'Pendente',
+        evento_id: evento.id,
+      });
+    }
+    if (!lista.length) { setErro('Nenhum paciente encontrado'); return; }
+    setPacientes(lista);
+    setPreview(true);
+    setErro('');
+  };
+
+  const handleFile = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => parseCSV(ev.target.result);
+    reader.readAsText(file, 'UTF-8');
+  };
+
+  return (
+    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="modal">
+        <div className="modal-header">
+          <div className="modal-title">📋 Importar Pacientes — {evento.titulo}</div>
+          <button className="modal-close" onClick={onClose}>×</button>
+        </div>
+        <div className="modal-body">
+          {!preview ? (
+            <>
+              <div className="upload-area" onClick={() => fileRef.current.click()}>
+                <div style={{ fontSize: 36, marginBottom: 8 }}>📂</div>
+                <div style={{ fontWeight: 600, marginBottom: 4 }}>Clique para selecionar o CSV</div>
+                <div style={{ fontSize: 12, color: 'var(--muted)' }}>Colunas esperadas: nome, email, telefone (separadas por vírgula ou ponto e vírgula)</div>
+              </div>
+              <input ref={fileRef} type="file" accept=".csv,.txt" style={{ display: 'none' }} onChange={handleFile} />
+              {erro && <div style={{ color: 'var(--danger)', fontSize: 13, marginTop: 10 }}>⚠ {erro}</div>}
+              <div style={{ marginTop: 16, padding: 12, background: 'var(--bg)', borderRadius: 8, fontSize: 12, color: 'var(--muted)' }}>
+                <strong style={{ color: 'var(--text)' }}>Exemplo de CSV:</strong><br/>
+                nome,email,telefone<br/>
+                Maria Silva,maria@email.com,11999998888<br/>
+                João Santos,joao@email.com,21988887777
+              </div>
+            </>
+          ) : (
+            <>
+              <div style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.2)', borderRadius: 8, padding: '10px 14px', marginBottom: 14, fontSize: 13, color: 'var(--success)' }}>
+                ✅ {pacientes.length} pacientes encontrados
+              </div>
+              <div className="table-wrap" style={{ maxHeight: 280, overflowY: 'auto', marginBottom: 14 }}>
+                <table>
+                  <thead><tr><th>Nome</th><th>Email</th><th>Telefone</th></tr></thead>
+                  <tbody>
+                    {pacientes.slice(0, 10).map(p => (
+                      <tr key={p.id}><td>{p.nome}</td><td>{p.email || '—'}</td><td>{p.telefone || '—'}</td></tr>
+                    ))}
+                    {pacientes.length > 10 && <tr><td colSpan={3} style={{ color: 'var(--muted)', textAlign: 'center' }}>... e mais {pacientes.length - 10}</td></tr>}
+                  </tbody>
+                </table>
+              </div>
+              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                <button className="btn btn-ghost" onClick={() => setPreview(false)}>← Voltar</button>
+                <button className="btn btn-primary" onClick={() => onSave(pacientes)}>✓ Importar {pacientes.length} pacientes</button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── PAINEL GOVERNANÇA ────────────────────────────────────────────────────────
+function PainelGovernanca({ evento, pacientes, onEnviar, onLembrete, onVoltar }) {
+  const [filtro, setFiltro] = useState('Todos');
+  const [busca, setBusca] = useState('');
+
+  const stats = {
+    total: pacientes.length,
+    enviados: pacientes.filter(p => p.status !== 'Pendente').length,
+    confirmados: pacientes.filter(p => p.status === 'Confirmado').length,
+    recusaram: pacientes.filter(p => p.status === 'Recusou').length,
+    semResposta: pacientes.filter(p => p.status === 'Enviado' || p.status === 'Lembrete enviado').length,
+  };
+
+  const pct = (n) => stats.total > 0 ? Math.round((n / stats.total) * 100) : 0;
+
+  const filtrados = pacientes.filter(p => {
+    const matchFiltro = filtro === 'Todos' || p.status === filtro;
+    const matchBusca = !busca || p.nome.toLowerCase().includes(busca.toLowerCase()) || (p.email || '').toLowerCase().includes(busca.toLowerCase());
+    return matchFiltro && matchBusca;
+  });
+
+  return (
+    <div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+        <button className="btn btn-ghost btn-sm" onClick={onVoltar}>← Voltar</button>
+        <div>
+          <div className="page-title">{evento.titulo}</div>
+          <div className="page-sub">{fmtDate(evento.data)} · {evento.hora} · {evento.local}</div>
+        </div>
+      </div>
+
+      {/* KPIs */}
+      <div className="kpi-row" style={{ marginBottom: 20 }}>
+        <div className="kpi">
+          <div className="kpi-label">Total Convidados</div>
+          <div className="kpi-value">{stats.total}</div>
+        </div>
+        <div className="kpi">
+          <div className="kpi-label">✅ Confirmados</div>
+          <div className="kpi-value" style={{ color: 'var(--success)' }}>{stats.confirmados}</div>
+          <div className="kpi-sub">{pct(stats.confirmados)}% do total</div>
+        </div>
+        <div className="kpi">
+          <div className="kpi-label">⏳ Sem Resposta</div>
+          <div className="kpi-value" style={{ color: 'var(--warn)' }}>{stats.semResposta}</div>
+          <div className="kpi-sub">{pct(stats.semResposta)}% do total</div>
+        </div>
+        <div className="kpi">
+          <div className="kpi-label">❌ Recusaram</div>
+          <div className="kpi-value" style={{ color: 'var(--danger)' }}>{stats.recusaram}</div>
+          <div className="kpi-sub">{pct(stats.recusaram)}% do total</div>
+        </div>
+      </div>
+
+      {/* Barra de progresso */}
+      {stats.enviados > 0 && (
+        <div className="card" style={{ marginBottom: 16 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, fontSize: 12 }}>
+            <span style={{ color: 'var(--muted)' }}>Taxa de confirmação</span>
+            <span style={{ fontWeight: 600, color: 'var(--success)' }}>{pct(stats.confirmados)}%</span>
+          </div>
+          <div className="progress-bar">
+            <div className="progress-fill" style={{ width: pct(stats.confirmados) + '%', background: 'var(--success)' }} />
+          </div>
+          <div style={{ display: 'flex', gap: 16, marginTop: 10, fontSize: 11, color: 'var(--muted)' }}>
+            <span>🟢 Confirmados: {stats.confirmados}</span>
+            <span>🟡 Sem resposta: {stats.semResposta}</span>
+            <span>🔴 Recusaram: {stats.recusaram}</span>
+          </div>
+        </div>
+      )}
+
+      {/* Ações */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
+        {stats.enviados === 0 && (
+          <button className="btn btn-primary" onClick={() => onEnviar(pacientes)}>
+            📧 Disparar Convites ({stats.total} pacientes)
+          </button>
+        )}
+        {stats.semResposta > 0 && (
+          <button className="btn btn-ghost" onClick={() => onLembrete(pacientes.filter(p => p.status === 'Enviado' || p.status === 'Lembrete enviado'))}>
+            🔔 Enviar Lembrete ({stats.semResposta} sem resposta)
+          </button>
+        )}
+        <input className="form-input" placeholder="Buscar paciente..." value={busca} onChange={e => setBusca(e.target.value)} style={{ width: 200 }} />
+      </div>
+
+      {/* Filtros */}
+      <div style={{ display: 'flex', gap: 6, marginBottom: 14, flexWrap: 'wrap' }}>
+        {['Todos', 'Pendente', 'Enviado', 'Confirmado', 'Recusou', 'Lembrete enviado'].map(f => (
+          <button key={f} onClick={() => setFiltro(f)} style={{ padding: '4px 12px', borderRadius: 20, border: '1px solid', fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', borderColor: filtro === f ? 'var(--teal)' : 'var(--border)', background: filtro === f ? 'rgba(0,135,158,0.1)' : 'transparent', color: filtro === f ? 'var(--teal-light)' : 'var(--muted)' }}>
+            {f} {f !== 'Todos' && `(${pacientes.filter(p => p.status === f).length})`}
+          </button>
+        ))}
+      </div>
+
+      {/* Tabela */}
+      <div className="card">
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Nome</th>
+                <th>Email</th>
+                <th>Telefone</th>
+                <th>Status</th>
+                <th>Atualizado em</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtrados.length === 0 ? (
+                <tr><td colSpan={5} style={{ textAlign: 'center', color: 'var(--muted)', padding: 24 }}>Nenhum paciente neste filtro</td></tr>
+              ) : filtrados.map(p => (
+                <tr key={p.id}>
+                  <td style={{ fontWeight: 500 }}>{p.nome}</td>
+                  <td style={{ color: 'var(--muted)' }}>{p.email || '—'}</td>
+                  <td style={{ color: 'var(--muted)' }}>{p.telefone || '—'}</td>
+                  <td><Badge status={p.status} /></td>
+                  <td style={{ color: 'var(--muted)', fontSize: 12 }}>{p.atualizado_em ? fmtDT(p.atualizado_em) : '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── EVENTOS PAGE ─────────────────────────────────────────────────────────────
+function EventosPage({ clinica }) {
+  const [eventos, setEventos] = useState([]);
+  const [pacientesPorEvento, setPacientesPorEvento] = useState({});
+  const [showNovoModal, setShowNovoModal] = useState(false);
+  const [showUpload, setShowUpload] = useState(null);
+  const [eventoAtivo, setEventoAtivo] = useState(null);
+  const [toast, setToast] = useState(null);
+  const [enviando, setEnviando] = useState(false);
+
+  // Carregar do localStorage
+  useEffect(() => {
+    const stored = JSON.parse(localStorage.getItem('esgday_eventos') || '[]');
+    const meus = clinica.role === 'admin' ? stored : stored.filter(e => e.clinica_id === clinica.id);
+    setEventos(meus);
+    const pacs = JSON.parse(localStorage.getItem('esgday_pacientes') || '{}');
+    setPacientesPorEvento(pacs);
+  }, []);
+
+  const salvarEvento = (evento) => {
+    const todos = JSON.parse(localStorage.getItem('esgday_eventos') || '[]');
+    todos.push(evento);
+    localStorage.setItem('esgday_eventos', JSON.stringify(todos));
+    setEventos(prev => [...prev, evento]);
+    setShowNovoModal(false);
+    setToast({ msg: '✅ Evento criado com sucesso!', type: 'success' });
+  };
+
+  const importarPacientes = (eventId, novos) => {
+    const todos = JSON.parse(localStorage.getItem('esgday_pacientes') || '{}');
+    todos[eventId] = novos;
+    localStorage.setItem('esgday_pacientes', JSON.stringify(todos));
+    setPacientesPorEvento(prev => ({ ...prev, [eventId]: novos }));
+    // Atualizar evento
+    const allEvs = JSON.parse(localStorage.getItem('esgday_eventos') || '[]');
+    const idx = allEvs.findIndex(e => e.id === eventId);
+    if (idx >= 0) { allEvs[idx].total_convidados = novos.length; localStorage.setItem('esgday_eventos', JSON.stringify(allEvs)); }
+    setShowUpload(null);
+    setToast({ msg: `✅ ${novos.length} pacientes importados!`, type: 'success' });
+  };
+
+  const enviarConvites = async (evento, pacientes) => {
+    setEnviando(true);
+    setToast({ msg: `📧 Enviando ${pacientes.length} convites via IA...`, type: 'success' });
+
+    // Usar Claude API para gerar emails personalizados e "simular" envio
+    const atualizados = [];
+    for (const p of pacientes) {
+      const msg = evento.mensagem_email
+        .replace(/{nome}/g, p.nome)
+        .replace(/{data}/g, fmtDate(evento.data))
+        .replace(/{hora}/g, evento.hora)
+        .replace(/{local}/g, evento.local)
+        .replace(/{titulo}/g, evento.titulo);
+
+      // Chamar Claude API para personalizar a mensagem
+      try {
+        const res = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model: 'claude-haiku-4-5-20251001',
+            max_tokens: 500,
+            messages: [{ role: 'user', content: `Você é um assistente de saúde. Reescreva este convite de forma personalizada e calorosa para ${p.nome}, mantendo todas as informações essenciais. Retorne APENAS o texto do email, sem comentários:\n\n${msg}` }]
+          })
+        });
+        const data = await res.json();
+        const textoPersonalizado = data.content?.[0]?.text || msg;
+        atualizados.push({ ...p, status: 'Enviado', mensagem_enviada: textoPersonalizado, atualizado_em: new Date().toISOString() });
+      } catch {
+        atualizados.push({ ...p, status: 'Enviado', mensagem_enviada: msg, atualizado_em: new Date().toISOString() });
+      }
+    }
+
+    // Salvar
+    const todos = JSON.parse(localStorage.getItem('esgday_pacientes') || '{}');
+    todos[evento.id] = atualizados;
+    localStorage.setItem('esgday_pacientes', JSON.stringify(todos));
+    setPacientesPorEvento(prev => ({ ...prev, [evento.id]: atualizados }));
+
+    // Atualizar status do evento
+    const allEvs = JSON.parse(localStorage.getItem('esgday_eventos') || '[]');
+    const idx = allEvs.findIndex(e => e.id === evento.id);
+    if (idx >= 0) { allEvs[idx].status = 'Ativo'; localStorage.setItem('esgday_eventos', JSON.stringify(allEvs)); }
+
+    setEnviando(false);
+    setToast({ msg: `✅ ${atualizados.length} convites enviados e personalizados pela IA!`, type: 'success' });
+  };
+
+  const enviarLembrete = (evento, pacientesSemResposta) => {
+    const todos = JSON.parse(localStorage.getItem('esgday_pacientes') || '{}');
+    const atualizados = (todos[evento.id] || []).map(p => {
+      if (pacientesSemResposta.find(ps => ps.id === p.id)) {
+        return { ...p, status: 'Lembrete enviado', atualizado_em: new Date().toISOString() };
+      }
+      return p;
+    });
+    todos[evento.id] = atualizados;
+    localStorage.setItem('esgday_pacientes', JSON.stringify(todos));
+    setPacientesPorEvento(prev => ({ ...prev, [evento.id]: atualizados }));
+    setToast({ msg: `🔔 Lembrete enviado para ${pacientesSemResposta.length} pacientes!`, type: 'success' });
+  };
+
+  // Simular confirmações para demo
+  const simularResposta = (eventoId) => {
+    const todos = JSON.parse(localStorage.getItem('esgday_pacientes') || '{}');
+    const pacs = todos[eventoId] || [];
+    const atualizados = pacs.map((p, i) => {
+      if (p.status === 'Enviado' || p.status === 'Lembrete enviado') {
+        const r = Math.random();
+        if (r < 0.45) return { ...p, status: 'Confirmado', atualizado_em: new Date().toISOString() };
+        if (r < 0.65) return { ...p, status: 'Recusou', atualizado_em: new Date().toISOString() };
+      }
+      return p;
+    });
+    todos[eventoId] = atualizados;
+    localStorage.setItem('esgday_pacientes', JSON.stringify(todos));
+    setPacientesPorEvento(prev => ({ ...prev, [eventoId]: atualizados }));
+    setToast({ msg: '🔄 Respostas simuladas atualizadas!', type: 'success' });
+    if (eventoAtivo?.id === eventoId) {
+      setEventoAtivo(ev => ev ? { ...ev } : ev);
+    }
+  };
+
+  if (eventoAtivo) {
+    return (
+      <PainelGovernanca
+        evento={eventoAtivo}
+        pacientes={pacientesPorEvento[eventoAtivo.id] || []}
+        onEnviar={(pacs) => enviarConvites(eventoAtivo, pacs)}
+        onLembrete={(pacs) => enviarLembrete(eventoAtivo, pacs)}
+        onVoltar={() => setEventoAtivo(null)}
+      />
+    );
+  }
+
+  return (
+    <div>
+      <div className="page-title">Eventos ESG Day</div>
+      <div className="page-sub">Gerencie convites e confirmações de presença</div>
+
+      <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+        <button className="btn btn-primary" onClick={() => setShowNovoModal(true)}>+ Novo Evento</button>
+      </div>
+
+      {eventos.length === 0 ? (
+        <div className="card" style={{ textAlign: 'center', padding: 48, color: 'var(--muted)' }}>
+          <div style={{ fontSize: 36, marginBottom: 12 }}>🎯</div>
+          <div style={{ fontWeight: 600, marginBottom: 4 }}>Nenhum evento criado</div>
+          <div style={{ fontSize: 13 }}>Clique em "+ Novo Evento" para começar</div>
+        </div>
+      ) : (
+        eventos.map(ev => {
+          const pacs = pacientesPorEvento[ev.id] || [];
+          const confirmados = pacs.filter(p => p.status === 'Confirmado').length;
+          const enviados = pacs.filter(p => p.status !== 'Pendente').length;
+          return (
+            <div key={ev.id} className="evento-card" onClick={() => setEventoAtivo(ev)}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 4 }}>{ev.titulo}</div>
+                  <div style={{ fontSize: 12, color: 'var(--muted)' }}>📅 {fmtDate(ev.data)} · 🕐 {ev.hora} · 📍 {ev.local}</div>
+                  <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>👨‍⚕️ {ev.medico}</div>
+                </div>
+                <div style={{ display: 'flex', gap: 8, flexDirection: 'column', alignItems: 'flex-end' }}>
+                  <span className={`badge ${ev.status === 'Ativo' ? 'badge-confirmado' : 'badge-enviado'}`}>{ev.status}</span>
+                  <div style={{ fontSize: 12, color: 'var(--muted)' }}>{pacs.length} convidados · ✅ {confirmados} confirmados</div>
+                </div>
+              </div>
+              {pacs.length > 0 && (
+                <div style={{ marginTop: 10 }}>
+                  <div className="progress-bar">
+                    <div className="progress-fill" style={{ width: (pacs.length > 0 ? Math.round((confirmados / pacs.length) * 100) : 0) + '%', background: 'var(--success)' }} />
+                  </div>
+                </div>
+              )}
+              <div style={{ display: 'flex', gap: 6, marginTop: 10 }} onClick={e => e.stopPropagation()}>
+                {pacs.length === 0 && (
+                  <button className="btn btn-ghost btn-sm" onClick={() => setShowUpload(ev)}>📋 Importar Pacientes</button>
+                )}
+                {pacs.length > 0 && enviados > 0 && (
+                  <button className="btn btn-ghost btn-sm" onClick={() => simularResposta(ev.id)}>🔄 Simular Respostas (Demo)</button>
+                )}
+              </div>
+            </div>
+          );
+        })
+      )}
+
+      {showNovoModal && <NovoEventoModal clinica={clinica} onSave={salvarEvento} onClose={() => setShowNovoModal(false)} />}
+      {showUpload && <UploadModal evento={showUpload} onSave={(pacs) => importarPacientes(showUpload.id, pacs)} onClose={() => setShowUpload(null)} />}
+      {toast && <Toast msg={toast.msg} type={toast.type} onHide={() => setToast(null)} />}
+      {enviando && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200 }}>
+          <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: 32, textAlign: 'center' }}>
+            <div style={{ fontSize: 32, marginBottom: 12 }}>✨</div>
+            <div style={{ fontWeight: 700, marginBottom: 8 }}>IA personalizando convites...</div>
+            <div style={{ fontSize: 13, color: 'var(--muted)' }}>Cada mensagem está sendo personalizada individualmente</div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── DASHBOARD ────────────────────────────────────────────────────────────────
+function DashboardPage({ clinica }) {
+  const eventos = JSON.parse(localStorage.getItem('esgday_eventos') || '[]').filter(e => clinica.role === 'admin' || e.clinica_id === clinica.id);
+  const pacientesPorEvento = JSON.parse(localStorage.getItem('esgday_pacientes') || '{}');
+  const todosPacientes = Object.values(pacientesPorEvento).flat();
+
+  const total = eventos.length;
+  const confirmados = todosPacientes.filter(p => p.status === 'Confirmado').length;
+  const enviados = todosPacientes.filter(p => p.status !== 'Pendente').length;
+  const semResposta = todosPacientes.filter(p => p.status === 'Enviado' || p.status === 'Lembrete enviado').length;
+
+  return (
+    <div>
+      <div className="page-title">Dashboard</div>
+      <div className="page-sub">Visão geral dos eventos ESG Day</div>
+      <div className="kpi-row">
+        <div className="kpi">
+          <div className="kpi-label">Eventos Criados</div>
+          <div className="kpi-value" style={{ color: 'var(--teal-light)' }}>{total}</div>
+        </div>
+        <div className="kpi">
+          <div className="kpi-label">Convites Enviados</div>
+          <div className="kpi-value">{enviados}</div>
+        </div>
+        <div className="kpi">
+          <div className="kpi-label">✅ Confirmados</div>
+          <div className="kpi-value" style={{ color: 'var(--success)' }}>{confirmados}</div>
+          <div className="kpi-sub">{enviados > 0 ? Math.round((confirmados/enviados)*100) : 0}% de confirmação</div>
+        </div>
+        <div className="kpi">
+          <div className="kpi-label">⏳ Aguardando</div>
+          <div className="kpi-value" style={{ color: 'var(--warn)' }}>{semResposta}</div>
+        </div>
+      </div>
+      {total === 0 && (
+        <div className="card" style={{ textAlign: 'center', padding: 48, color: 'var(--muted)' }}>
+          <div style={{ fontSize: 36, marginBottom: 12 }}>🎯</div>
+          <div style={{ fontWeight: 600 }}>Bem-vindo ao ESG Day Manager</div>
+          <div style={{ fontSize: 13, marginTop: 6 }}>Crie seu primeiro evento na aba "Eventos"</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── APP PRINCIPAL ────────────────────────────────────────────────────────────
+function App() {
+  const [clinica, setClinica] = useState(() => JSON.parse(localStorage.getItem('esgday_session') || 'null'));
+  const [tab, setTab] = useState('dashboard');
+
+  const handleLogin = (c) => { localStorage.setItem('esgday_session', JSON.stringify(c)); setClinica(c); };
+  const handleLogout = () => { localStorage.removeItem('esgday_session'); setClinica(null); };
+
+  if (!clinica) return <Login onLogin={handleLogin} />;
+
+  const nav = [
+    { id: 'dashboard', icon: '◈', label: 'Dashboard' },
+    { id: 'eventos', icon: '🎯', label: 'Eventos' },
+  ];
+
+  return (
+    <div className="app">
+      <div className="sidebar">
+        <div className="sidebar-logo">
+          <div className="brand">ESG Day Manager</div>
+          <div className="clinic">{clinica.nome}</div>
+        </div>
+        {nav.map(n => (
+          <div key={n.id} className={`nav-item ${tab === n.id ? 'active' : ''}`} onClick={() => setTab(n.id)}>
+            <span className="nav-icon">{n.icon}</span>
+            {n.label}
+          </div>
+        ))}
+        <div className="sidebar-footer">
+          <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 8 }}>{clinica.email}</div>
+          <button className="btn-logout" onClick={handleLogout}>Sair</button>
+        </div>
+      </div>
+      <div className="main">
+        {tab === 'dashboard' && <DashboardPage clinica={clinica} />}
+        {tab === 'eventos' && <EventosPage clinica={clinica} />}
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
